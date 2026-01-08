@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>4DV806 A3 — Heart Disease Multivariate Dashboard</title>
+  <link rel="stylesheet" href="./style.css" />
+
+  <!-- Vega stack -->
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Heart Disease Multivariate Dashboard</h1>
+      <p class="sub">
+        Linked views for browsing, highlighting, filtering, and patient comparison (4DV806 Assignment 3).
+      </p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div id="vis"></div>
+      <div class="hint">
+        Tips:
+        <ul>
+          <li>Click a bar in “Outcome overview” to filter all views.</li>
+          <li>Use sliders to filter age range; use dropdown for sex.</li>
+          <li>In scatterplot: choose X/Y variables, drag to brush, click points to select patients.</li>
+          <li>Selected patients appear in “Patient details”.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>
