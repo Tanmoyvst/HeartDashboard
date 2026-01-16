@@ -1,378 +1,699 @@
 (async function () {
-  // Data columns expected (typical UCI/Kaggle heart dataset):
-  // age, sex, cp, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal, target
-
-  // Dataset file served by this project
+  // ===== DATA & STATE =====
   const DATA_URL = "./data/heart.csv";
-
-  // Variables available in the scatter X/Y dropdowns
-  const scatterVars = [
-    "age", "trestbps", "chol", "thalach", "oldpeak", "ca"
-  ];
-
-  const vlSpec = {
-    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-    description: "Linked multivariate heart disease dashboard (A3).",
-    background: "#121a26",
-    padding: 10,
-    data: { url: DATA_URL },
-
-    // Global UI controls (filters)
-    params: [
-      {
-        name: "sexParam",
-        value: "All",
-        bind: {
-          input: "select",
-          name: "Sex: ",
-          options: ["All", "Male", "Female"]
-        }
-      },
-      {
-        name: "ageMin",
-        value: 20,
-        bind: { input: "range", name: "Age min: ", min: 20, max: 80, step: 1 }
-      },
-      {
-        name: "ageMax",
-        value: 80,
-        bind: { input: "range", name: "Age max: ", min: 20, max: 80, step: 1 }
-      },
-
-      // Scatter dropdowns
-      {
-        name: "xVar",
-        value: "age",
-        bind: { input: "select", name: "Scatter X: ", options: scatterVars }
-      },
-      {
-        name: "yVar",
-        value: "chol",
-        bind: { input: "select", name: "Scatter Y: ", options: scatterVars }
-      }
-    ],
-
-    // Normalize the UCI CSV columns + apply global filters (sex + age + targetSel)
-    transform: [
-      // Coerce / normalize fields into the names used throughout the spec
-      { calculate: "toNumber(datum.age)", as: "age" },
-      // Original CSV: sex is 'Male'/'Female'
-      { calculate: "datum.sex === 'Male' ? 1 : (datum.sex === 'Female' ? 0 : null)", as: "sex" },
-      { calculate: "datum.sex === 'Male' ? 'Male' : (datum.sex === 'Female' ? 'Female' : 'Unknown')", as: "sex_label" },
-
-      { calculate: "toNumber(datum.trestbps)", as: "trestbps" },
-      { calculate: "toNumber(datum.chol)", as: "chol" },
-      // Original CSV uses 'thalch' (no second 'a')
-      { calculate: "toNumber(datum.thalch)", as: "thalach" },
-      { calculate: "toNumber(datum.oldpeak)", as: "oldpeak" },
-      { calculate: "(datum.ca === '' || datum.ca === '?' || datum.ca == null) ? null : toNumber(datum.ca)", as: "ca" },
-
-      // Original CSV: num is 0..4, treat >0 as heart disease
-      { calculate: "toNumber(datum.num)", as: "num" },
-      { calculate: "datum.num != null && toNumber(datum.num) > 0 ? 1 : 0", as: "target" },
-      { calculate: "(datum.num != null && toNumber(datum.num) > 0) ? 'Heart disease' : 'No heart disease'", as: "target_label" },
-
-      // Stable patient id (prefer id column if present)
-      { calculate: "datum.id != null && datum.id !== '' ? toNumber(datum.id) : null", as: "pid" },
-      { window: [{ op: "row_number", as: "pid_fallback" }] },
-      { calculate: "datum.pid != null ? datum.pid : datum.pid_fallback", as: "pid" },
-
-      // Sex filter
-      {
-        filter:
-          "sexParam === 'All' || datum.sex_label === sexParam"
-      },
-      // Age range filter
-      {
-        filter:
-          "datum.age >= ageMin && datum.age <= ageMax"
-      },
-      // Note: the outcome filter (targetSel) is applied inside linked views.
-    ],
-
-    // Layout: top (overview) + middle (small multiples + scatter) + bottom (details)
-    vconcat: [
-      // ---------------------------
-      // Row 1: Outcome overview
-      // ---------------------------
-      {
-        hconcat: [
-          {
-            width: 360,
-            height: 180,
-            title: { text: "Outcome overview", color: "#e8eefc" },
-            params: [
-              {
-                name: "targetSel",
-                select: { type: "point", fields: ["target_label"], on: "click", clear: "dblclick" }
-              }
-            ],
-            mark: { type: "bar", cornerRadiusTopLeft: 3, cornerRadiusTopRight: 3 },
-            encoding: {
-              x: {
-                field: "target_label",
-                type: "nominal",
-                axis: { labelColor: "#a8b3cf", title: null }
-              },
-              y: {
-                aggregate: "count",
-                type: "quantitative",
-                axis: { labelColor: "#a8b3cf", title: "Patients" }
-              },
-              color: {
-                field: "target_label",
-                type: "nominal",
-                legend: null
-              },
-              opacity: {
-                condition: { param: "targetSel", value: 1 },
-                value: 0.35
-              },
-              tooltip: [
-                { field: "target_label", type: "nominal", title: "Outcome" },
-                { aggregate: "count", type: "quantitative", title: "Count" }
-              ]
-            }
-          },
-
-          // A small “status” text panel for current filters
-          {
-            width: 760,
-            height: 180,
-            title: { text: "Current filters & interactions", color: "#e8eefc" },
-            transform: [
-              { filter: { param: "targetSel", empty: true } },
-              { aggregate: [{ op: "count", as: "n" }] },
-              {
-                calculate:
-                  "'Sex: ' + sexParam + ' | Age: ' + ageMin + '-' + ageMax",
-                as: "filters_text"
-              },
-              {
-                calculate:
-                  "targetSel.target_label ? ('Outcome: ' + targetSel.target_label) : 'Outcome: (none selected)'",
-                as: "outcome_text"
-              }
-            ],
-            mark: { type: "text", align: "left", baseline: "top", dx: 10, dy: 10 },
-            encoding: {
-              text: {
-                field: "filters_text",
-                type: "nominal"
-              },
-              color: { value: "#a8b3cf" }
-            },
-            layer: [
-              {
-                mark: { type: "text", align: "left", baseline: "top", dx: 10, dy: 18, fontSize: 14 },
-                encoding: { text: { field: "filters_text" }, color: { value: "#a8b3cf" } }
-              },
-              {
-                mark: { type: "text", align: "left", baseline: "top", dx: 10, dy: 44, fontSize: 14 },
-                encoding: { text: { field: "outcome_text" }, color: { value: "#a8b3cf" } }
-              },
-              {
-                mark: { type: "text", align: "left", baseline: "top", dx: 10, dy: 70, fontSize: 14 },
-                encoding: {
-                  text: { field: "n", type: "quantitative", title: "Filtered N" },
-                  color: { value: "#a8b3cf" }
-                }
-              }
-            ]
-          }
-        ],
-        spacing: 18
-      },
-
-      // ---------------------------
-      // Row 2: Small multiples + Relationship view
-      // ---------------------------
-      {
-        hconcat: [
-          // Small multiples histograms (2x2)
-          {
-            title: { text: "Feature distributions (small multiples)", color: "#e8eefc" },
-            transform: [
-              { filter: { param: "targetSel", empty: true } }
-            ],
-            vconcat: [
-              {
-                hconcat: [
-                  histogramSpec("age", "Age"),
-                  histogramSpec("trestbps", "Resting BP (trestbps)")
-                ],
-                spacing: 14
-              },
-              {
-                hconcat: [
-                  histogramSpec("chol", "Cholesterol (chol)"),
-                  histogramSpec("thalach", "Max HR (thalach)")
-                ],
-                spacing: 14
-              }
-            ],
-            spacing: 14
-          },
-
-          // Relationship (scatter with x/y dropdown + brush + patient selection)
-          {
-            width: 520,
-            height: 420,
-            title: { text: "Relationship view (scatter, brush & select)", color: "#e8eefc" },
-            transform: [
-              { filter: { param: "targetSel", empty: true } }
-            ],
-            params: [
-              {
-                name: "scatterBrush",
-                select: { type: "interval" }
-              },
-              {
-                name: "patientSel",
-                select: { type: "point", fields: ["pid"], on: "click", toggle: true, clear: "dblclick" }
-              }
-            ],
-            mark: { type: "point", filled: true, size: 70 },
-            encoding: {
-              x: {
-                field: { expr: "xVar" },
-                type: "quantitative",
-                title: { expr: "xVar" },
-                axis: { labelColor: "#a8b3cf", titleColor: "#a8b3cf" }
-              },
-              y: {
-                field: { expr: "yVar" },
-                type: "quantitative",
-                title: { expr: "yVar" },
-                axis: { labelColor: "#a8b3cf", titleColor: "#a8b3cf" }
-              },
-              color: {
-                field: "target_label",
-                type: "nominal",
-                title: "Outcome",
-                legend: { labelColor: "#a8b3cf", titleColor: "#a8b3cf" }
-              },
-              opacity: {
-                condition: [
-                  { param: "scatterBrush", value: 1 },
-                  { param: "patientSel", value: 1 }
-                ],
-                value: 0.25
-              },
-              stroke: {
-                condition: { param: "patientSel", value: "#ffffff" },
-                value: null
-              },
-              strokeWidth: {
-                condition: { param: "patientSel", value: 2 },
-                value: 0
-              },
-              tooltip: [
-                { field: "pid", type: "quantitative", title: "Patient ID" },
-                { field: "target_label", type: "nominal", title: "Outcome" },
-                { field: "sex_label", type: "nominal", title: "Sex" },
-                { field: "age", type: "quantitative", title: "Age" },
-                { field: "trestbps", type: "quantitative", title: "trestbps" },
-                { field: "chol", type: "quantitative", title: "chol" },
-                { field: "thalach", type: "quantitative", title: "thalach" },
-                { field: "oldpeak", type: "quantitative", title: "oldpeak" },
-                { field: "ca", type: "quantitative", title: "ca" }
-              ]
-            }
-          }
-        ],
-        spacing: 18
-      },
-
-      // ---------------------------
-      // Row 3: Patient details (comparison)
-      // ---------------------------
-      {
-        title: { text: "Patient details (selected patients for comparison)", color: "#e8eefc" },
-        height: 260,
-        transform: [
-          { filter: { param: "targetSel", empty: true } },
-          { filter: { param: "patientSel", empty: false } },
-          // Only show up to 6 selected patients to keep it readable
-          { window: [{ op: "rank", as: "r" }], sort: [{ field: "pid", order: "ascending" }] },
-          { filter: "datum.r <= 6" },
-          {
-            fold: [
-              "sex_label", "age", "cp", "trestbps", "chol", "fbs", "restecg",
-              "thalach", "exang", "oldpeak", "slope", "ca", "thal", "target_label"
-            ],
-            as: ["attribute", "value"]
-          }
-        ],
-        mark: "text",
-        encoding: {
-          y: {
-            field: "attribute",
-            type: "nominal",
-            axis: { labelColor: "#a8b3cf", title: null }
-          },
-          x: {
-            field: "pid",
-            type: "nominal",
-            axis: { labelColor: "#a8b3cf", title: "Selected Patient ID" }
-          },
-          text: { field: "value", type: "nominal" },
-          color: { value: "#e8eefc" }
-        }
-      }
-    ],
-
-    config: {
-      view: { stroke: "transparent" },
-      axis: {
-        grid: true,
-        gridColor: "rgba(255,255,255,0.06)",
-        domainColor: "rgba(255,255,255,0.08)",
-        tickColor: "rgba(255,255,255,0.08)",
-        labelFontSize: 11,
-        titleFontSize: 12
-      },
-      legend: { labelFontSize: 11, titleFontSize: 12 }
-    }
+  let rawData = [];
+  let filteredData = [];
+  
+  // UI State
+  let state = {
+    sexParam: "All",
+    ageMin: 20,
+    ageMax: 80,
+    xVar: "age",
+    yVar: "chol",
+    targetSel: null,
+    scatterBrush: null,
+    selectedPatients: new Set(),
+    brushActive: false
   };
 
-  function histogramSpec(field, titleText) {
-    return {
-      width: 250,
-      height: 180,
-      title: { text: titleText, color: "#e8eefc", fontSize: 12 },
-      mark: { type: "bar" },
-      encoding: {
-        x: {
-          field,
-          type: "quantitative",
-          bin: { maxbins: 18 },
-          axis: { labelColor: "#a8b3cf", title: null }
-        },
-        y: {
-          aggregate: "count",
-          type: "quantitative",
-          axis: { labelColor: "#a8b3cf", title: "Count" }
-        },
-        color: {
-          field: "target_label",
-          type: "nominal",
-          legend: null
-        },
-        opacity: {
-          condition: { param: "scatterBrush", value: 1 },
-          value: 0.75
-        },
-        tooltip: [
-          { field, type: "quantitative", title: field },
-          { aggregate: "count", type: "quantitative", title: "Count" },
-          { field: "target_label", type: "nominal", title: "Outcome" }
-        ]
-      }
-    };
+  const scatterVars = ["age", "trestbps", "chol", "thalach", "oldpeak", "ca"];
+  
+  // Color schemes
+  const outcomeColors = {
+    "Heart disease": "#e15759",
+    "No heart disease": "#4e79a7"
+  };
+
+  // ===== DATA LOADING & PROCESSING =====
+  async function loadData() {
+    const csv = await d3.csv(DATA_URL);
+    
+    rawData = csv.map((d, i) => ({
+      age: +d.age,
+      sex: d.sex === "Male" ? 1 : 0,
+      sex_label: d.sex,
+      trestbps: +d.trestbps,
+      chol: +d.chol,
+      thalach: +d.thalch, // Note: CSV uses 'thalch'
+      oldpeak: +d.oldpeak,
+      ca: (d.ca === "" || d.ca === "?") ? null : +d.ca,
+      num: +d.num,
+      target: +d.num > 0 ? 1 : 0,
+      target_label: +d.num > 0 ? "Heart disease" : "No heart disease",
+      cp: d.cp,
+      fbs: d.fbs,
+      restecg: d.restecg,
+      exang: d.exang,
+      slope: d.slope,
+      thal: d.thal,
+      pid: d.id ? +d.id : i + 1
+    }));
   }
 
-  // Render
-  const embedOpts = { actions: false };
-  await vegaEmbed("#vis", vlSpec, embedOpts);
+  function applyFilters() {
+    filteredData = rawData.filter(d => {
+      // Sex filter
+      if (state.sexParam !== "All" && d.sex_label !== state.sexParam) return false;
+      // Age filter
+      if (d.age < state.ageMin || d.age > state.ageMax) return false;
+      // Target filter
+      if (state.targetSel && d.target_label !== state.targetSel) return false;
+      return true;
+    });
+  }
+
+  // ===== UI CONTROLS =====
+  function createControls() {
+    const controls = d3.select("#controls");
+    controls.style("padding", "10px 0 20px 0")
+      .style("border-bottom", "1px solid rgba(255,255,255,0.08)")
+      .style("margin-bottom", "20px");
+
+    const row1 = controls.append("div").style("margin-bottom", "15px");
+    const row2 = controls.append("div");
+
+    // Sex dropdown
+    row1.append("label")
+      .style("color", "#a8b3cf")
+      .style("margin-right", "10px")
+      .text("Sex: ");
+    
+    const sexSelect = row1.append("select")
+      .style("margin-right", "30px")
+      .on("change", function() {
+        state.sexParam = this.value;
+        update();
+      });
+    
+    ["All", "Male", "Female"].forEach(opt => {
+      sexSelect.append("option").text(opt).attr("value", opt);
+    });
+
+    // Age min slider
+    row1.append("label")
+      .style("color", "#a8b3cf")
+      .style("margin-right", "10px")
+      .text("Age min: ");
+    
+    row1.append("input")
+      .attr("type", "range")
+      .attr("min", 20)
+      .attr("max", 80)
+      .attr("value", 20)
+      .style("margin-right", "10px")
+      .on("input", function() {
+        state.ageMin = +this.value;
+        ageMinLabel.text(this.value);
+        update();
+      });
+    
+    const ageMinLabel = row1.append("span")
+      .style("color", "#a8b3cf")
+      .style("margin-right", "30px")
+      .text("20");
+
+    // Age max slider
+    row1.append("label")
+      .style("color", "#a8b3cf")
+      .style("margin-right", "10px")
+      .text("Age max: ");
+    
+    row1.append("input")
+      .attr("type", "range")
+      .attr("min", 20)
+      .attr("max", 80)
+      .attr("value", 80)
+      .style("margin-right", "10px")
+      .on("input", function() {
+        state.ageMax = +this.value;
+        ageMaxLabel.text(this.value);
+        update();
+      });
+    
+    const ageMaxLabel = row1.append("span")
+      .style("color", "#a8b3cf")
+      .text("80");
+
+    // Scatter X dropdown
+    row2.append("label")
+      .style("color", "#a8b3cf")
+      .style("margin-right", "10px")
+      .text("Scatter X: ");
+    
+    const xSelect = row2.append("select")
+      .style("margin-right", "30px")
+      .on("change", function() {
+        state.xVar = this.value;
+        drawScatter();
+      });
+    
+    scatterVars.forEach(v => {
+      xSelect.append("option").text(v).attr("value", v).property("selected", v === "age");
+    });
+
+    // Scatter Y dropdown
+    row2.append("label")
+      .style("color", "#a8b3cf")
+      .style("margin-right", "10px")
+      .text("Scatter Y: ");
+    
+    const ySelect = row2.append("select")
+      .style("margin-right", "30px")
+      .on("change", function() {
+        state.yVar = this.value;
+        drawScatter();
+      });
+    
+    scatterVars.forEach(v => {
+      ySelect.append("option").text(v).attr("value", v).property("selected", v === "chol");
+    });
+
+    // Clear Selection button
+    row2.append("button")
+      .style("padding", "5px 15px")
+      .style("background", "#e15759")
+      .style("color", "#fff")
+      .style("border", "none")
+      .style("border-radius", "4px")
+      .style("cursor", "pointer")
+      .style("font-size", "12px")
+      .text("Clear Selection")
+      .on("click", function() {
+        state.selectedPatients.clear();
+        state.scatterBrush = null;
+        state.brushActive = false;
+        update();
+      })
+      .on("mouseover", function() {
+        d3.select(this).style("background", "#c94d4f");
+      })
+      .on("mouseout", function() {
+        d3.select(this).style("background", "#e15759");
+      });
+  }
+
+  // ===== OUTCOME BAR CHART =====
+  function drawOutcomeChart() {
+    const container = d3.select("#outcome-chart");
+    container.selectAll("*").remove();
+    
+    container.append("h3")
+      .style("color", "#e8eefc")
+      .style("font-size", "14px")
+      .style("margin", "0 0 10px 0")
+      .text("Outcome overview");
+
+    const width = 360;
+    const height = 180;
+    const margin = {top: 10, right: 10, bottom: 30, left: 50};
+
+    const svg = container.append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    const counts = d3.rollup(
+      filteredData,
+      v => v.length,
+      d => d.target_label
+    );
+
+    const data = Array.from(counts, ([key, value]) => ({label: key, count: value}));
+
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.label))
+      .range([margin.left, width - margin.right])
+      .padding(0.3);
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.count)])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    // Bars
+    svg.selectAll("rect")
+      .data(data)
+      .join("rect")
+        .attr("x", d => x(d.label))
+        .attr("y", d => y(d.count))
+        .attr("width", x.bandwidth())
+        .attr("height", d => y(0) - y(d.count))
+        .attr("fill", d => outcomeColors[d.label])
+        .attr("opacity", d => state.targetSel === null || state.targetSel === d.label ? 1 : 0.35)
+        .attr("rx", 3)
+        .style("cursor", "pointer")
+        .on("click", function(event, d) {
+          if (state.targetSel === d.label) {
+            state.targetSel = null;
+          } else {
+            state.targetSel = d.label;
+          }
+          update();
+        })
+        .append("title")
+        .text(d => `${d.label}: ${d.count}`);
+
+    // X axis
+    svg.append("g")
+      .attr("transform", `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x))
+      .selectAll("text")
+      .style("fill", "#a8b3cf");
+
+    // Y axis
+    svg.append("g")
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y))
+      .selectAll("text")
+      .style("fill", "#a8b3cf");
+
+    svg.selectAll(".domain, .tick line")
+      .style("stroke", "rgba(255,255,255,0.08)");
+  }
+
+  // ===== FILTER STATUS =====
+  function drawFilterStatus() {
+    const container = d3.select("#filter-status");
+    container.selectAll("*").remove();
+    
+    container.append("h3")
+      .style("color", "#e8eefc")
+      .style("font-size", "14px")
+      .style("margin", "0 0 10px 0")
+      .text("Current filters & interactions");
+
+    const info = container.append("div")
+      .style("padding", "20px")
+      .style("color", "#a8b3cf")
+      .style("font-size", "14px")
+      .style("line-height", "1.8");
+
+    info.append("div").text(`Sex: ${state.sexParam} | Age: ${state.ageMin}-${state.ageMax}`);
+    info.append("div").text(`Outcome: ${state.targetSel || "(none selected)"}`);
+    info.append("div").text(`Filtered N: ${filteredData.length}`);
+    if (state.selectedPatients.size > 0) {
+      info.append("div")
+        .style("color", "#e8eefc")
+        .style("font-weight", "bold")
+        .text(`Selected for comparison: ${state.selectedPatients.size} patients`);
+    }
+  }
+
+  // ===== HISTOGRAMS =====
+  function drawHistograms() {
+    const specs = [
+      { id: "hist-age", field: "age", title: "Age" },
+      { id: "hist-trestbps", field: "trestbps", title: "Resting BP (trestbps)" },
+      { id: "hist-chol", field: "chol", title: "Cholesterol (chol)" },
+      { id: "hist-thalach", field: "thalach", title: "Max HR (thalach)" }
+    ];
+
+    specs.forEach(spec => drawHistogram(spec.id, spec.field, spec.title));
+  }
+
+  function drawHistogram(containerId, field, title) {
+    const container = d3.select(`#${containerId}`);
+    container.selectAll("*").remove();
+    
+    container.append("h4")
+      .style("color", "#e8eefc")
+      .style("font-size", "12px")
+      .style("margin", "0 0 5px 0")
+      .text(title);
+
+    const width = 250;
+    const height = 180;
+    const margin = {top: 10, right: 10, bottom: 30, left: 40};
+
+    const svg = container.append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    // Use selected patients if any, otherwise use filtered data
+    const dataToShow = state.selectedPatients.size > 0
+      ? filteredData.filter(d => state.selectedPatients.has(d.pid))
+      : filteredData;
+
+    // Create bins
+    const values = dataToShow.map(d => d[field]).filter(v => v != null);
+    const bins = d3.bin()
+      .domain(d3.extent(filteredData.map(d => d[field]).filter(v => v != null)))
+      .thresholds(18)(values);
+
+    // Group by outcome
+    const binnedData = bins.map(bin => {
+      const inBin = dataToShow.filter(d => d[field] >= bin.x0 && d[field] < bin.x1);
+      const byOutcome = d3.rollup(inBin, v => v.length, d => d.target_label);
+      return {
+        x0: bin.x0,
+        x1: bin.x1,
+        patients: inBin,
+        groups: Array.from(byOutcome, ([key, value]) => ({outcome: key, count: value}))
+      };
+    });
+
+    const x = d3.scaleLinear()
+      .domain([d3.min(bins, d => d.x0), d3.max(bins, d => d.x1)])
+      .range([margin.left, width - margin.right]);
+
+    const maxCount = d3.max(binnedData, d => d3.sum(d.groups, g => g.count));
+    const y = d3.scaleLinear()
+      .domain([0, maxCount])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    // Create tooltip
+    const tooltip = d3.select("body").append("div")
+      .attr("class", "histogram-tooltip")
+      .style("position", "absolute")
+      .style("background", "#1e2732")
+      .style("color", "#e8eefc")
+      .style("padding", "10px")
+      .style("border-radius", "4px")
+      .style("border", "1px solid rgba(255,255,255,0.2)")
+      .style("font-size", "11px")
+      .style("pointer-events", "none")
+      .style("opacity", 0)
+      .style("z-index", 1000)
+      .style("max-height", "400px")
+      .style("overflow-y", "auto");
+
+    // Draw stacked bars
+    binnedData.forEach(bin => {
+      let yOffset = 0;
+      bin.groups.forEach(g => {
+        svg.append("rect")
+          .attr("x", x(bin.x0))
+          .attr("y", y(yOffset + g.count))
+          .attr("width", x(bin.x1) - x(bin.x0) - 1)
+          .attr("height", y(yOffset) - y(yOffset + g.count))
+          .attr("fill", outcomeColors[g.outcome])
+          .attr("opacity", 0.75)
+          .style("cursor", "pointer")
+          .on("mouseover", function(event) {
+            d3.select(this).attr("opacity", 1);
+            
+            let html = `<strong>${field}: ${bin.x0.toFixed(1)} - ${bin.x1.toFixed(1)}</strong><br>`;
+            html += `<strong>${g.outcome}</strong>: ${g.count} patients<br><br>`;
+            
+            const patientsInGroup = bin.patients.filter(p => p.target_label === g.outcome);
+            if (patientsInGroup.length > 0 && patientsInGroup.length <= 10) {
+              html += `<div style="max-height: 300px; overflow-y: auto;">`;
+              patientsInGroup.forEach(p => {
+                html += `<div style="margin-bottom: 8px; padding: 5px; background: rgba(255,255,255,0.05); border-radius: 3px;">`;
+                html += `<strong>Patient ${p.pid}</strong><br>`;
+                html += `Age: ${p.age}, Sex: ${p.sex_label}<br>`;
+                html += `BP: ${p.trestbps}, Chol: ${p.chol}<br>`;
+                html += `Max HR: ${p.thalach}`;
+                html += `</div>`;
+              });
+              html += `</div>`;
+            } else if (patientsInGroup.length > 10) {
+              html += `<em>(${patientsInGroup.length} patients - too many to display)</em>`;
+            }
+            
+            tooltip.html(html)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px")
+              .style("opacity", 1);
+          })
+          .on("mouseout", function() {
+            d3.select(this).attr("opacity", 0.75);
+            tooltip.style("opacity", 0);
+          });
+        yOffset += g.count;
+      });
+    });
+
+    // Axes
+    svg.append("g")
+      .attr("transform", `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x).ticks(5))
+      .selectAll("text")
+      .style("fill", "#a8b3cf");
+
+    svg.append("g")
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).ticks(5))
+      .selectAll("text")
+      .style("fill", "#a8b3cf");
+
+    svg.selectAll(".domain, .tick line")
+      .style("stroke", "rgba(255,255,255,0.08)");
+  }
+
+  // ===== SCATTERPLOT =====
+  function drawScatter() {
+    const container = d3.select("#scatter-chart");
+    container.selectAll("*").remove();
+    
+    container.append("h3")
+      .style("color", "#e8eefc")
+      .style("font-size", "14px")
+      .style("margin", "0 0 10px 0")
+      .text("Relationship view (scatter, brush & select)");
+
+    const width = 520;
+    const height = 420;
+    const margin = {top: 10, right: 120, bottom: 40, left: 50};
+
+    const svg = container.append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    const xField = state.xVar;
+    const yField = state.yVar;
+
+    const xExtent = d3.extent(filteredData, d => d[xField]);
+    const yExtent = d3.extent(filteredData, d => d[yField]);
+
+    const x = d3.scaleLinear()
+      .domain(xExtent)
+      .nice()
+      .range([margin.left, width - margin.right]);
+
+    const y = d3.scaleLinear()
+      .domain(yExtent)
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    // Brush
+    const brush = d3.brush()
+      .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])
+      .on("end", brushed);
+
+    svg.append("g")
+      .attr("class", "brush")
+      .call(brush);
+
+    // Points
+    const points = svg.append("g")
+      .selectAll("circle")
+      .data(filteredData)
+      .join("circle")
+        .attr("cx", d => x(d[xField]))
+        .attr("cy", d => y(d[yField]))
+        .attr("r", 5)
+        .attr("fill", d => outcomeColors[d.target_label])
+        .attr("opacity", 1)
+        .attr("stroke", d => state.selectedPatients.has(d.pid) ? "#ffffff" : "none")
+        .attr("stroke-width", 2)
+        .style("cursor", "pointer")
+        .on("click", function(event, d) {
+          event.stopPropagation();
+          state.brushActive = false;
+          if (state.selectedPatients.has(d.pid)) {
+            state.selectedPatients.delete(d.pid);
+          } else {
+            if (state.selectedPatients.size < 6) {
+              state.selectedPatients.add(d.pid);
+            }
+          }
+          drawScatter();
+          drawHistograms();
+          drawPatientDetails();
+        })
+        .append("title")
+        .text(d => `Patient ${d.pid}\n${d.target_label}\nAge: ${d.age}\n${xField}: ${d[xField]}\n${yField}: ${d[yField]}`);
+
+    function brushed({selection}) {
+      if (!selection) {
+        state.scatterBrush = null;
+        state.selectedPatients.clear();
+        state.brushActive = false;
+        drawScatter();
+        drawHistograms();
+        drawPatientDetails();
+        return;
+      }
+      
+      state.scatterBrush = selection;
+      state.selectedPatients.clear();
+      state.brushActive = true;
+      
+      const [[x0, y0], [x1, y1]] = selection;
+      filteredData.forEach(d => {
+        const cx = x(d[xField]);
+        const cy = y(d[yField]);
+        if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) {
+          state.selectedPatients.add(d.pid);
+        }
+      });
+      
+      drawScatter();
+      drawHistograms();
+      drawPatientDetails();
+    }
+
+    // Axes
+    svg.append("g")
+      .attr("transform", `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x))
+      .selectAll("text")
+      .style("fill", "#a8b3cf");
+
+    svg.append("text")
+      .attr("x", (margin.left + width - margin.right) / 2)
+      .attr("y", height - 5)
+      .attr("text-anchor", "middle")
+      .style("fill", "#a8b3cf")
+      .style("font-size", "12px")
+      .text(xField);
+
+    svg.append("g")
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y))
+      .selectAll("text")
+      .style("fill", "#a8b3cf");
+
+    svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -(margin.top + height - margin.bottom) / 2)
+      .attr("y", 15)
+      .attr("text-anchor", "middle")
+      .style("fill", "#a8b3cf")
+      .style("font-size", "12px")
+      .text(yField);
+
+    // Legend
+    const legend = svg.append("g")
+      .attr("transform", `translate(${width - margin.right + 10}, ${margin.top})`);
+
+    Object.entries(outcomeColors).forEach(([label, color], i) => {
+      legend.append("rect")
+        .attr("x", 0)
+        .attr("y", i * 20)
+        .attr("width", 12)
+        .attr("height", 12)
+        .attr("fill", color);
+
+      legend.append("text")
+        .attr("x", 18)
+        .attr("y", i * 20 + 10)
+        .style("fill", "#a8b3cf")
+        .style("font-size", "11px")
+        .text(label);
+    });
+
+    svg.selectAll(".domain, .tick line")
+      .style("stroke", "rgba(255,255,255,0.08)");
+  }
+
+  // ===== PATIENT DETAILS =====
+  function drawPatientDetails() {
+    const container = d3.select("#patient-details");
+    container.selectAll("*").remove();
+    
+    container.append("h3")
+      .style("color", "#e8eefc")
+      .style("font-size", "14px")
+      .style("margin", "0 0 10px 0")
+      .text("Patient details (selected patients for comparison)");
+
+    // Only show patient details if brush is NOT active (i.e., individual clicks only)
+    if (state.brushActive) {
+      container.append("p")
+        .style("color", "#a8b3cf")
+        .style("padding", "20px")
+        .text("Click individual points (not brush) to compare patients in detail.");
+      return;
+    }
+
+    if (state.selectedPatients.size === 0) {
+      container.append("p")
+        .style("color", "#a8b3cf")
+        .style("padding", "20px")
+        .text("Click points in the scatterplot to select patients for comparison (max 6).");
+      return;
+    }
+
+    const allSelectedData = filteredData.filter(d => state.selectedPatients.has(d.pid));
+    const selectedData = allSelectedData.slice(0, 6);
+
+    const attributes = [
+      "sex_label", "age", "cp", "trestbps", "chol", "fbs", "restecg",
+      "thalach", "exang", "oldpeak", "slope", "ca", "thal", "target_label"
+    ];
+
+    const table = container.append("table")
+      .style("width", "100%")
+      .style("border-collapse", "collapse")
+      .style("color", "#e8eefc")
+      .style("font-size", "12px");
+
+    const thead = table.append("thead");
+    const headerRow = thead.append("tr");
+    headerRow.append("th")
+      .style("text-align", "left")
+      .style("padding", "8px")
+      .style("border-bottom", "1px solid rgba(255,255,255,0.08)")
+      .text("Attribute");
+
+    selectedData.forEach(d => {
+      headerRow.append("th")
+        .style("text-align", "center")
+        .style("padding", "8px")
+        .style("border-bottom", "1px solid rgba(255,255,255,0.08)")
+        .text(`Patient ${d.pid}`);
+    });
+
+    const tbody = table.append("tbody");
+    attributes.forEach(attr => {
+      const row = tbody.append("tr");
+      row.append("td")
+        .style("padding", "8px")
+        .style("border-bottom", "1px solid rgba(255,255,255,0.04)")
+        .style("color", "#a8b3cf")
+        .text(attr);
+
+      selectedData.forEach(d => {
+        row.append("td")
+          .style("text-align", "center")
+          .style("padding", "8px")
+          .style("border-bottom", "1px solid rgba(255,255,255,0.04)")
+          .text(d[attr] ?? "N/A");
+      });
+    });
+  }
+
+  // ===== UPDATE ALL VIEWS =====
+  function update() {
+    applyFilters();
+    drawOutcomeChart();
+    drawFilterStatus();
+    drawHistograms();
+    drawScatter();
+    drawPatientDetails();
+  }
+
+  // ===== INITIALIZATION =====
+  await loadData();
+  createControls();
+  applyFilters();
+  
+  drawOutcomeChart();
+  drawFilterStatus();
+  drawHistograms();
+  drawScatter();
+  drawPatientDetails();
 })();

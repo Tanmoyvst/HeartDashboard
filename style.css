@@ -38,43 +38,89 @@ h1 { margin: 0 0 6px 0; font-size: 20px; }
   padding-top: 10px;
 }
 .hint ul { margin: 8px 0 0 18px; }
-:root {
-  --bg: #0b0f16;
-  --card: #121a26;
-  --text: #e8eefc;
-  --muted: #a8b3cf;
-  --border: rgba(255,255,255,0.08);
+
+/* D3.js specific styles */
+#controls {
+  font-family: inherit;
 }
 
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-
-.topbar {
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255,255,255,0.02);
-}
-h1 { margin: 0 0 6px 0; font-size: 20px; }
-.sub { margin: 0; color: var(--muted); font-size: 13px; }
-
-.wrap { max-width: 1200px; margin: 0 auto; padding: 18px; }
-.card {
-  background: var(--card);
+#controls select,
+#controls input[type="range"] {
+  background: rgba(255,255,255,0.05);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
 }
 
-.hint {
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 13px;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+#controls select {
+  cursor: pointer;
 }
-.hint ul { margin: 8px 0 0 18px; }
+
+#controls input[type="range"] {
+  cursor: pointer;
+  accent-color: #4e79a7;
+}
+
+.vis-row {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.chart {
+  flex: 1;
+  min-width: 0;
+}
+
+#outcome-chart {
+  flex: 0 0 360px;
+}
+
+#filter-status {
+  flex: 1;
+  min-width: 300px;
+}
+
+#small-multiples {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  flex: 0 0 530px;
+}
+
+.histogram {
+  background: rgba(255,255,255,0.02);
+  padding: 8px;
+  border-radius: 6px;
+}
+
+#scatter-chart {
+  flex: 0 0 520px;
+}
+
+#patient-details {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#patient-details table {
+  min-width: 600px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1150px) {
+  .vis-row {
+    flex-direction: column;
+  }
+  
+  #outcome-chart,
+  #filter-status,
+  #small-multiples,
+  #scatter-chart {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
