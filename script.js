@@ -70,114 +70,139 @@
       .style("border-bottom", "1px solid rgba(255,255,255,0.08)")
       .style("margin-bottom", "20px");
 
-    const row1 = controls.append("div").style("margin-bottom", "15px");
-    const row2 = controls.append("div");
-
     // Sex dropdown
-    row1.append("label")
-      .style("color", "#a8b3cf")
-      .style("margin-right", "10px")
-      .text("Sex: ");
-    
-    const sexSelect = row1.append("select")
-      .style("margin-right", "30px")
+    const sexGroup = controls.append("div");
+    sexGroup.append("label").text("Sex:");
+    const sexSelect = sexGroup.append("select")
+      .attr("title", "Filter patients by sex")
       .on("change", function() {
         state.sexParam = this.value;
         update();
       });
-    
     ["All", "Male", "Female"].forEach(opt => {
       sexSelect.append("option").text(opt).attr("value", opt);
     });
 
     // Age min slider
-    row1.append("label")
-      .style("color", "#a8b3cf")
-      .style("margin-right", "10px")
-      .text("Age min: ");
-    
-    row1.append("input")
+    const ageMinGroup = controls.append("div");
+    ageMinGroup.append("label").text("Age min:");
+    const ageMinContainer = ageMinGroup.append("div")
+      .style("display", "flex")
+      .style("align-items", "center")
+      .style("gap", "10px");
+    const ageMinSlider = ageMinContainer.append("input")
       .attr("type", "range")
       .attr("min", 20)
       .attr("max", 80)
       .attr("value", 20)
-      .style("margin-right", "10px")
+      .attr("title", "Set minimum age for filtering")
+      .style("flex", "1")
       .on("input", function() {
         state.ageMin = +this.value;
-        ageMinLabel.text(this.value);
+        ageMinInput.property("value", this.value);
         update();
       });
-    
-    const ageMinLabel = row1.append("span")
-      .style("color", "#a8b3cf")
-      .style("margin-right", "30px")
-      .text("20");
+    const ageMinInput = ageMinContainer.append("input")
+      .attr("type", "number")
+      .attr("min", 20)
+      .attr("max", 80)
+      .attr("value", 20)
+      .attr("title", "Type age value (20-80)")
+      .style("width", "50px")
+      .style("background", "#1e2732")
+      .style("border", "1px solid rgba(255,255,255,0.08)")
+      .style("color", "#e8eefc")
+      .style("padding", "4px")
+      .style("border-radius", "4px")
+      .style("text-align", "center")
+      .on("input", function() {
+        let val = +this.value;
+        if (val < 20) val = 20;
+        if (val > 80) val = 80;
+        state.ageMin = val;
+        ageMinSlider.property("value", val);
+        update();
+      });
 
     // Age max slider
-    row1.append("label")
-      .style("color", "#a8b3cf")
-      .style("margin-right", "10px")
-      .text("Age max: ");
-    
-    row1.append("input")
+    const ageMaxGroup = controls.append("div");
+    ageMaxGroup.append("label").text("Age max:");
+    const ageMaxContainer = ageMaxGroup.append("div")
+      .style("display", "flex")
+      .style("align-items", "center")
+      .style("gap", "10px");
+    const ageMaxSlider = ageMaxContainer.append("input")
       .attr("type", "range")
       .attr("min", 20)
       .attr("max", 80)
       .attr("value", 80)
-      .style("margin-right", "10px")
+      .attr("title", "Set maximum age for filtering")
+      .style("flex", "1")
       .on("input", function() {
         state.ageMax = +this.value;
-        ageMaxLabel.text(this.value);
+        ageMaxInput.property("value", this.value);
         update();
       });
-    
-    const ageMaxLabel = row1.append("span")
-      .style("color", "#a8b3cf")
-      .text("80");
+    const ageMaxInput = ageMaxContainer.append("input")
+      .attr("type", "number")
+      .attr("min", 20)
+      .attr("max", 80)
+      .attr("value", 80)
+      .attr("title", "Type age value (20-80)")
+      .style("width", "50px")
+      .style("background", "#1e2732")
+      .style("border", "1px solid rgba(255,255,255,0.08)")
+      .style("color", "#e8eefc")
+      .style("padding", "4px")
+      .style("border-radius", "4px")
+      .style("text-align", "center")
+      .on("input", function() {
+        let val = +this.value;
+        if (val < 20) val = 20;
+        if (val > 80) val = 80;
+        state.ageMax = val;
+        ageMaxSlider.property("value", val);
+        update();
+      });
 
     // Scatter X dropdown
-    row2.append("label")
-      .style("color", "#a8b3cf")
-      .style("margin-right", "10px")
-      .text("Scatter X: ");
-    
-    const xSelect = row2.append("select")
-      .style("margin-right", "30px")
+    const scatterXGroup = controls.append("div");
+    scatterXGroup.append("label").text("Scatter X:");
+    const xSelect = scatterXGroup.append("select")
+      .attr("title", "Choose variable for horizontal axis")
       .on("change", function() {
         state.xVar = this.value;
         drawScatter();
       });
-    
     scatterVars.forEach(v => {
       xSelect.append("option").text(v).attr("value", v).property("selected", v === "age");
     });
 
     // Scatter Y dropdown
-    row2.append("label")
-      .style("color", "#a8b3cf")
-      .style("margin-right", "10px")
-      .text("Scatter Y: ");
-    
-    const ySelect = row2.append("select")
-      .style("margin-right", "30px")
+    const scatterYGroup = controls.append("div");
+    scatterYGroup.append("label").text("Scatter Y:");
+    const ySelect = scatterYGroup.append("select")
+      .attr("title", "Choose variable for vertical axis")
       .on("change", function() {
         state.yVar = this.value;
         drawScatter();
       });
-    
     scatterVars.forEach(v => {
       ySelect.append("option").text(v).attr("value", v).property("selected", v === "chol");
     });
 
     // Clear Selection button
-    row2.append("button")
-      .style("padding", "5px 15px")
+    const buttonGroup = controls.append("div");
+    buttonGroup.append("button")
+      .attr("title", "Reset all patient selections")
+      .style("padding", "8px 16px")
       .style("background", "#e15759")
       .style("color", "#fff")
       .style("border", "none")
       .style("border-radius", "4px")
       .style("cursor", "pointer")
-      .style("font-size", "12px")
+      .style("font-size", "13px")
+      .style("width", "100%")
       .text("Clear Selection")
       .on("click", function() {
         state.selectedPatients.clear();
@@ -251,7 +276,7 @@
           update();
         })
         .append("title")
-        .text(d => `${d.label}: ${d.count}`);
+        .text(d => `${d.label}: ${d.count} patients\\nClick to filter by this outcome`);
 
     // X axis
     svg.append("g")
@@ -321,8 +346,8 @@
       .style("margin", "0 0 5px 0")
       .text(title);
 
-    const width = 250;
-    const height = 180;
+    const width = 350;
+    const height = 250;
     const margin = {top: 10, right: 10, bottom: 30, left: 40};
 
     const svg = container.append("svg")
@@ -408,8 +433,6 @@
                 html += `</div>`;
               });
               html += `</div>`;
-            } else if (patientsInGroup.length > 10) {
-              html += `<em>(${patientsInGroup.length} patients - too many to display)</em>`;
             }
             
             tooltip.html(html)
@@ -448,13 +471,15 @@
     container.selectAll("*").remove();
     
     container.append("h3")
+      .attr("title", "Drag to brush-select multiple patients, click points to select up to 6 for comparison")
       .style("color", "#e8eefc")
       .style("font-size", "14px")
       .style("margin", "0 0 10px 0")
-      .text("Relationship view (scatter, brush & select)");
+      .style("cursor", "help")
+      .text("Relationship view");
 
-    const width = 520;
-    const height = 420;
+    const width = 630;
+    const height = 500;
     const margin = {top: 10, right: 120, bottom: 40, left: 50};
 
     const svg = container.append("svg")
@@ -514,7 +539,7 @@
           drawPatientDetails();
         })
         .append("title")
-        .text(d => `Patient ${d.pid}\n${d.target_label}\nAge: ${d.age}\n${xField}: ${d[xField]}\n${yField}: ${d[yField]}`);
+        .text(d => `Patient ${d.pid} - ${d.target_label}\\nAge: ${d.age}, Sex: ${d.sex_label}\\n${xField}: ${d[xField]}, ${yField}: ${d[yField]}\\nClick to select for comparison (max 6)`);
 
     function brushed({selection}) {
       if (!selection) {
@@ -631,8 +656,20 @@
     const selectedData = allSelectedData.slice(0, 6);
 
     const attributes = [
-      "sex_label", "age", "cp", "trestbps", "chol", "fbs", "restecg",
-      "thalach", "exang", "oldpeak", "slope", "ca", "thal", "target_label"
+      { key: "sex_label", label: "Sex (sex_label)" },
+      { key: "age", label: "Age (age)" },
+      { key: "cp", label: "Chest Pain Type (cp)" },
+      { key: "trestbps", label: "Resting Blood Pressure (trestbps)" },
+      { key: "chol", label: "Cholesterol (chol)" },
+      { key: "fbs", label: "Fasting Blood Sugar (fbs)" },
+      { key: "restecg", label: "Resting ECG (restecg)" },
+      { key: "thalach", label: "Max Heart Rate (thalach)" },
+      { key: "exang", label: "Exercise Induced Angina (exang)" },
+      { key: "oldpeak", label: "ST Depression (oldpeak)" },
+      { key: "slope", label: "Slope (slope)" },
+      { key: "ca", label: "Number of Major Vessels (ca)" },
+      { key: "thal", label: "Thalassemia (thal)" },
+      { key: "target_label", label: "Outcome (target_label)" }
     ];
 
     const table = container.append("table")
@@ -664,14 +701,28 @@
         .style("padding", "8px")
         .style("border-bottom", "1px solid rgba(255,255,255,0.04)")
         .style("color", "#a8b3cf")
-        .text(attr);
+        .text(attr.label);
 
       selectedData.forEach(d => {
-        row.append("td")
+        const cell = row.append("td")
           .style("text-align", "center")
           .style("padding", "8px")
-          .style("border-bottom", "1px solid rgba(255,255,255,0.04)")
-          .text(d[attr] ?? "N/A");
+          .style("border-bottom", "1px solid rgba(255,255,255,0.04)");
+        
+        if (attr.key === "target_label") {
+          const value = d[attr.key] ?? "N/A";
+          const bgColor = value === "Heart disease" ? "#e15759" : "#4caf50";
+          cell.append("span")
+            .style("background", bgColor)
+            .style("color", "#fff")
+            .style("padding", "4px 8px")
+            .style("border-radius", "4px")
+            .style("display", "inline-block")
+            .style("font-weight", "bold")
+            .text(value);
+        } else {
+          cell.text(d[attr.key] ?? "N/A");
+        }
       });
     });
   }

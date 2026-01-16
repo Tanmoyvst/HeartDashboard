@@ -12,48 +12,39 @@
 <body>
   <header class="topbar">
     <div>
-      <h1>Heart Disease Multivariate Dashboard (D3.js)</h1>
-      <p class="sub">
-        Linked views for browsing, highlighting, filtering, and patient comparison (4DV806 Assignment 3).
-      </p>
+      <h1>Heart Disease Multivariate Dashboard</h1>
+      <p>GR222HD</p>
     </div>
   </header>
 
   <main class="wrap">
     <section class="card">
-      <!-- Controls -->
-      <div id="controls"></div>
-      
-      <!-- Visualizations -->
-      <div id="vis">
-        <div id="row1" class="vis-row">
-          <div id="outcome-chart" class="chart"></div>
-          <div id="filter-status" class="chart"></div>
-        </div>
+      <div class="main-layout">
+        <!-- Controls on the left -->
+        <div id="controls"></div>
         
-        <div id="row2" class="vis-row">
-          <div id="small-multiples" class="chart">
-            <div id="hist-age" class="histogram"></div>
-            <div id="hist-trestbps" class="histogram"></div>
-            <div id="hist-chol" class="histogram"></div>
-            <div id="hist-thalach" class="histogram"></div>
+        <!-- Visualizations on the right -->
+        <div id="vis">
+          <div id="row1" class="vis-row">
+            <div id="outcome-chart" class="chart"></div>
+            <div id="filter-status" class="chart"></div>
           </div>
-          <div id="scatter-chart" class="chart"></div>
-        </div>
-        
-        <div id="row3" class="vis-row">
-          <div id="patient-details" class="chart"></div>
+          
+          <div id="row2" class="vis-row">
+            <div id="small-multiples" class="chart">
+              <div id="hist-age" class="histogram"></div>
+              <div id="hist-trestbps" class="histogram"></div>
+              <div id="hist-chol" class="histogram"></div>
+              <div id="hist-thalach" class="histogram"></div>
+            </div>
+            <div id="scatter-chart" class="chart"></div>
+          </div>
+          
+          <div id="row3" class="vis-row">
+            <div id="patient-details" class="chart"></div>
+          </div>
         </div>
       </div>
-      
-      <div class="hint">
-        Tips:
-        <ul>
-          <li>Click a bar in “Outcome overview” to filter all views.</li>
-          <li>Use sliders to filter age range; use dropdown for sex.</li>
-          <li>In scatterplot: choose X/Y variables, drag to brush, click points to select patients.</li>
-          <li>Selected patients appear in “Patient details”.</li>
-        </ul>
       </div>
     </section>
   </main>
